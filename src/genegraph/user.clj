@@ -14,7 +14,9 @@
             [portal.api :as portal])
   (:import [ch.qos.logback.classic Logger Level]
            [org.slf4j LoggerFactory]
-           [java.time Instant LocalDate]))
+           [java.time Instant LocalDate]
+           [java.util.concurrent ScheduledThreadPoolExecutor
+            ExecutorService ScheduledExecutorService TimeUnit]))
 
 (comment
   (def portal-window (portal/open))
@@ -59,11 +61,17 @@
                    #_sp/event-type-and-format))
          #_tap>))
 
+  (event-store/with-event-reader [r (str root-data-dir "gg-gvs2-jsonld-stage-1-2024-08-14.edn.gz")]
+    (->> (event-store/event-seq r)
+         (take 1)
+         (map event/deserialize)
+         tap>))
+
   (storage/read @(get-in test-app [:storage :record-store :instance])
                 [:gene-validity
                  ::rdf/n-triples
                  :versions
-              "http://dataexchange.clinicalgenome.org/gci/7765e2a4-19e4-4b15-9233-4847606fc501v1.0"])
+                 "http://dataexchange.clinicalgenome.org/gci/7765e2a4-19e4-4b15-9233-4847606fc501v1.0"])
 
   )
 
@@ -101,5 +109,44 @@
   (def test-app (p/init test-app-def))
   (p/start test-app)
   (p/stop test-app)
+
+  (let [handle {:type :file
+                :base "/Users/tristan/Desktop/test-snapshot/"
+                :path "test_snapshot1.tar.gz"}]
+    (writer/write-records {:app test-app
+                           :record-type :gene-validity
+                           :format ::rdf/n-triples
+                           :record-set :curations
+                           :storage-handle handle}))
+  
   )
+
+(comment
+  (def snapshot-app (p/init snapshot/snapshot-app-def))
+  (p/start snapshot-app)
+  (p/stop snapshot-app)
+  (get-events-from-topic (get-in snapshot/snapshot-app-def
+                                 [:topics
+                                  :gene-validity-json]))
+  (get-events-from-topic (get-in snapshot/snapshot-app-def
+                                 [:topics
+                                  :gene-validity-nt]))
+  (+ 1 1)
+  )
+
+
+(comment
+
+  (tap> snapshot/snapshot-app-def)
+
+  (def scheduled-executor
+    (ScheduledThreadPoolExecutor. 1))
+
+  (.schedule scheduled-executor #(println "hi") 4 TimeUnit/SECONDS)
+
+  (.scheduleAtFixedRate scheduled-executor #(println "hi") 1 4 TimeUnit/SECONDS)
+  (.shutdown scheduled-executor)
+
+  )
+
 

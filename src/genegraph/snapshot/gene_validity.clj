@@ -23,3 +23,11 @@ select ?c where {
 (defmethod sp/version-key [:gene-validity ::rdf/rdf-serialization]
   [event]
   (-> event ::event/data version-key-query first str))
+
+(defmethod sp/curation-key [:gene-validity :json]
+  [event]
+  (-> event ::event/data curation-key-query first str))
+
+(defmethod sp/version-key [:gene-validity :json]
+  [event]
+  (-> event ::event/data version-key-query first str))

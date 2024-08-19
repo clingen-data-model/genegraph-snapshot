@@ -5,6 +5,7 @@
             [genegraph.framework.env :as env]
             [genegraph.framework.storage :as storage]
             [genegraph.framework.storage.rdf :as rdf]
+            [genegraph.framework.storage.rdf.names :as names]
             [genegraph.snapshot.names]
             [genegraph.snapshot.gene-validity]
             [genegraph.snapshot.writer :as writer]
@@ -12,14 +13,19 @@
             [io.pedestal.interceptor :as interceptor]
             [io.pedestal.log :as log]
             [io.pedestal.http :as http])
+  (:import [java.time Instant ZonedDateTime]
+           [java.time.temporal TemporalUnit Temporal]
+           [java.util.concurrent ScheduledThreadPoolExecutor
+            ExecutorService ScheduledExecutorService TimeUnit])
   (:gen-class))
+
 
 
 (def admin-env
   (if (or (System/getenv "DX_JAAS_CONFIG_DEV")
           (System/getenv "DX_JAAS_CONFIG")) ; prevent this in cloud deployments
-    {:platform "dev"
-     :dataexchange-genegraph (System/getenv "DX_JAAS_CONFIG_DEV")
+    {:platform "stage"
+     :dataexchange-genegraph (System/getenv "DX_JAAS_CONFIG")
      :local-data-path "data/"}
     {}))
 
@@ -33,6 +39,8 @@
                  :kafka-user "User:2189780"
                  :fs-handle {:type :gcs
                              :bucket "genegraph-framework-dev"}
+                 :public-fs-handle {:type :gcs
+                                    :bucket "genegraph-dev-public"}
                  :local-data-path "/data")
     "stage" (assoc (env/build-environment "583560269534" ["dataexchange-genegraph"])
                    :version 1
@@ -40,15 +48,19 @@
                    :function (System/getenv "GENEGRAPH_FUNCTION")
                    :kafka-user "User:2592237"
                    :fs-handle {:type :gcs
-                               :bucket "genegraph-gene-validity-sepio-stage-1"}
+                               :bucket "genegraph-snapshot-stage-1"}
+                   :public-fs-handle {:type :gcs
+                                      :bucket "genegraph-stage-public"}
                    :local-data-path "/data")
     "prod" (assoc (env/build-environment "974091131481" ["dataexchange-genegraph"])
                   :function (System/getenv "GENEGRAPH_FUNCTION")
                   :version 1
                   :name "prod"
                   :kafka-user "User:2592237"
+                  :public-fs-handle {:type :gcs
+                                     :bucket "genegraph-public"}
                   :fs-handle {:type :gcs
-                              :bucket "genegraph-gene-validity-sepio-prod-1"}
+                              :bucket "genegraph-snapshot-prod-1"}
                   :local-data-path "/data")
     {}))
 
@@ -57,6 +69,20 @@
 
 (defn qualified-kafka-name [prefix]
   (str prefix "-" (:name env) "-" (:version env)))
+
+(def topics-to-snapshot
+  [{:name :gene-validity-nt
+    :kafka-topic "gg-gvs2-stage-1"
+    :record-type :gene-validity
+    :serialization ::rdf/n-triples}
+   {:name :gene-validity-json
+    :kafka-topic "gg-gvs2-jsonld-stage-1"
+    :record-type :gene-validity
+    :serialization :json}])
+
+
+
+
 
 (def data-exchange
   {:type :kafka-cluster
@@ -87,6 +113,7 @@
 (def gene-validity-sepio-jsonld-topic 
   {:name :gene-validity-sepio
    :kafka-cluster :data-exchange
+   :serialization :json
    :kafka-topic (qualified-kafka-name "gg-gvs2-jsonld")
    :kafka-topic-config {}})
 
@@ -110,7 +137,7 @@
     ::http/secure-headers nil}})
 
 (def record-store
-  {:name :gene-validity-version-store
+  {:name :record-store
    :type :rocksdb
    :snapshot-handle (assoc (:fs-handle env)
                            :path "record-store.tar.lz4")
@@ -156,6 +183,36 @@
                   version-key-interceptor
                   write-event-interceptor]})
 
+(def snapshot-app-def
+  {:type :genegraph-app
+   :kafka-clusters {:data-exchange data-exchange}
+   :topics
+   (reduce (fn [m t]
+             (assoc m
+                    (:name t)
+                    (assoc t
+                           :kafka-cluster :data-exchange
+                           :type :kafka-reader-topic)))
+           {}
+           topics-to-snapshot)
+   :processors
+   (reduce (fn [m t]
+             (let [processor-name
+                   (keyword (str (name (:name t)) "-processor"))]
+               (assoc m
+                      processor-name
+                      (assoc record-processor
+                             :name processor-name
+                             :subscribe (:name t)
+                             ::event/metadata
+                             {::record-type (:record-type t)}))))
+           {}
+           topics-to-snapshot)
+   :storage {:record-store record-store}
+   :http-servers ready-server})
+
+
+
 (def snapshot-def
   {:type :genegraph-app
    :kafka-clusters {:data-exchange data-exchange}
@@ -190,6 +247,18 @@
              (log/error :fn ::periodically-store-snapshots
                         :exception e))))))))
 
+(defonce record-executor
+  (ScheduledThreadPoolExecutor. 1))
+
+(defn periodically-write-records
+  [app record-def]
+  (.scheduleAtFixedRate record-executor
+                        #(writer/write-records record-def)
+                        0
+                        6
+                        TimeUnit/HOURS))
+
+
 (defn -main [& args]
   (log/info :msg "starting genegraph gene validity transform")
   (let [app (p/init snapshot-def)
@@ -199,6 +268,7 @@
                                  (log/info :fn ::-main
                                            :msg "stopping genegraph")
                                  (reset! run-atom false)
+                                 (.shutdown record-executor)
                                  (p/stop app))))
     (p/start app)
     (periodically-store-snapshots app 6 run-atom)))
