@@ -23,7 +23,6 @@
  
  :deps
  {ch.qos.logback/logback-classic                    {:mvn/version "1.5.0"}
-  org.clojure/clojure                               {:mvn/version "1.11.3"}
-  io.github.clingen-data-model/genegraph-framework  {:git/tag "0.1-alpha.35"
-                                                     :git/sha "5ce0a8d"}
+  org.clojure/clojure                               {:mvn/version "1.12.0"}
+  io.github.clingen-data-model/genegraph-framework  {:git/sha "9cebf6798495c8052df4c6133b3edde311dfe91c"}
 }}

@@ -7,3 +7,5 @@
 (defmulti curation-key event-type-and-format)
 
 (defmulti version-key event-type-and-format)
+
+(defmulti event-filename event-type-and-format)

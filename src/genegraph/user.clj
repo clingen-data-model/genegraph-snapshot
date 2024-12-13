@@ -11,6 +11,7 @@
             [genegraph.framework.storage.rdf.names :as names]
             [genegraph.snapshot.protocol :as sp]
             [genegraph.snapshot.writer :as writer]
+            [genegraph.snapshot.gene-validity :as gv]
             [portal.api :as portal])
   (:import [ch.qos.logback.classic Logger Level]
            [org.slf4j LoggerFactory]
@@ -134,10 +135,101 @@
   (+ 1 1)
   )
 
+(def data-root
+  "/Users/tristan/data/genegraph-neo/")
 
 (comment
 
-  (tap> snapshot/snapshot-app-def)
+  (def snapshot-test
+    (p/init
+     (-> snapshot/snapshot-app-def
+         (update :topics assoc :gene-validity-json {:name :gene-validity-json
+                                                    :type :simple-queue-topic})
+         (update :topics assoc :gene-validity-nt {:name :gene-validity-nt
+                                                  :type :simple-queue-topic}))))
+
+  (p/start snapshot-test)
+  (p/stop snapshot-test)
+
+  (time
+   (event-store/with-event-reader [r (str data-root "gg-gvs2-stage-1-2024-08-20.edn.gz")]
+     (->> (event-store/event-seq r)
+          (run! #(p/publish (get-in snapshot-test [:topics :gene-validity-nt])
+                            %)))))
+  (time
+   (event-store/with-event-reader [r (str data-root "gg-gvs2-jsonld-stage-1-2024-08-20.edn.gz")]
+     (->> (event-store/event-seq r)
+          (run! #(p/publish (get-in snapshot-test [:topics :gene-validity-json])
+                            %)))))
+
+  (tap> snapshot-test)
+  (let [db @(get-in snapshot-test [:storage :record-store :instance])]
+    (-> (rocksdb/range-get db
+                           {:prefix [:gene-validity :json :versions]
+                            :return :ref})
+        first
+        deref
+        #_tap>
+        #_sp/event-type-and-format
+        sp/event-filename
+        #_:genegraph.snapshot/version-key
+        #_(writer/iri->filename "json")))
+
+    (let [db @(get-in snapshot-test [:storage :record-store :instance])]
+      (storage/read db
+                    [record-type
+                     format
+                     record-set
+                     (:genegraph.snapshot/version-key
+                      record)]))
+  
+  (let [handle {:type :file
+                :base "/Users/tristan/data/snapshot-testing/"
+                :path "test_snapshot1.tar.gz"}]
+    (writer/write-records {:app snapshot-test
+                           :record-type :gene-validity
+                           :serialization ::rdf/n-triples
+                           :record-set :curations
+                           :storage-handle handle}))
+
+  (writer/write-records {:app snapshot-test
+                         :record-type :gene-validity
+                         :serialization ::rdf/n-triples
+                         :storage-handle {:type :file
+                                          :base "/Users/tristan/Desktop/"
+                                          :path "gv-nt.tar.gz"}
+                         :record-set :versions})
+
+  (event-store/with-event-reader [r (str data-root "gg-gvs2-jsonld-stage-1-2024-08-21.edn.gz")]
+    (->> (event-store/event-seq r)
+         (take 1)
+         (mapv event/deserialize)
+         tap>))
+  
+  (get-events-from-topic (get-in snapshot/snapshot-app-def
+                                 [:topics :gene-validity-json]))
+  (get-events-from-topic (get-in snapshot/snapshot-app-def
+                                 [:topics :gene-validity-nt]))
+
+  (portal/clear)
+  (tap>
+   (mapcat
+    #(snapshot/topic->record-defs %
+                                  snapshot-test
+                                  {:type :file
+                                   :base
+                                   "/Users/tristan/data/snapshot-testing/"})
+    snapshot/topics-to-snapshot))
+  (time
+   (run! writer/write-records
+         (mapcat
+          #(snapshot/topic->record-defs %
+                                        snapshot-test
+                                        {:type :file
+                                         :base
+                                         "/Users/tristan/data/snapshot-testing/"})
+          snapshot/topics-to-snapshot)))
+  
 
   (def scheduled-executor
     (ScheduledThreadPoolExecutor. 1))

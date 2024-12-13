@@ -1,5 +1,6 @@
 (ns genegraph.snapshot.writer
   (:require [clojure.java.io :as io]
+            [genegraph.snapshot.protocol :as sp]
             [genegraph.framework.storage :as storage]
             [genegraph.framework.event :as event]
             [genegraph.framework.storage.rdf.names :as names]
@@ -14,7 +15,6 @@
            [org.apache.commons.compress.compressors.gzip
             GzipCompressorOutputStream]))
 
-
 (defn write-snapshot [storage-handle records]
   (with-open [os (-> storage-handle
                      storage/as-handle
@@ -24,8 +24,6 @@
                      TarArchiveOutputStream.)]
     (run! (fn [record]
             (let [b (.getBytes (::event/value record))]
-              (log/info :filename (:genegraph.snapshot/filename record)
-                        :record-size (count (::event/value record)))
               (.putArchiveEntry
                os
                (doto (TarArchiveEntry.
@@ -35,38 +33,32 @@
               (.closeArchiveEntry os)))
           records)))
 
-(defn iri->filename [iri ext]
-  (log/info :iri iri)
-  (let [kw (names/iri->kw iri)]
-    (str (namespace kw) "_" (name kw) "." ext)))
-
-(def format->extension
+(def serialization->extension
   {::rdf/n-triples "nt"
    :json "json"})
 
 (defn write-records
-  [{:keys [app record-type format storage-handle record-set]}]
+  [{:keys [app record-type serialization storage-handle record-set]}]
   (let [db @(get-in app [:storage :record-store :instance])
         add-value (fn [record]
                     (if (::event/value record)
                       record
                       (storage/read db
                                     [record-type
-                                     format
-                                     record-set
+                                     serialization
+                                     :versions
                                      (:genegraph.snapshot/version-key
                                       record)])))]
     (->> (rocksdb/range-get db
                             {:prefix [record-type
-                                      format
-                                      :curations]
+                                      serialization
+                                      record-set]
                              :return :ref})
-         (take 5)
+         #_(take 1)
          (map deref)
          (map add-value)
+         (filter :genegraph.snapshot/version-key)
          (map #(assoc %
                       :genegraph.snapshot/filename
-                      (iri->filename
-                       (:genegraph.snapshot/version-key %)
-                       (format->extension format))))
+                      (sp/event-filename %)))
          (write-snapshot storage-handle))))

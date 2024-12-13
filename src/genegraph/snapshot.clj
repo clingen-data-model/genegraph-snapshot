@@ -24,7 +24,7 @@
 (def admin-env
   (if (or (System/getenv "DX_JAAS_CONFIG_DEV")
           (System/getenv "DX_JAAS_CONFIG")) ; prevent this in cloud deployments
-    {:platform "stage"
+    {:platform "local"
      :dataexchange-genegraph (System/getenv "DX_JAAS_CONFIG")
      :local-data-path "data/"}
     {}))
@@ -74,15 +74,13 @@
   [{:name :gene-validity-nt
     :kafka-topic "gg-gvs2-stage-1"
     :record-type :gene-validity
-    :serialization ::rdf/n-triples}
+    :serialization ::rdf/n-triples
+    :archive-name "gene-validity-nt"}
    {:name :gene-validity-json
     :kafka-topic "gg-gvs2-jsonld-stage-1"
     :record-type :gene-validity
-    :serialization :json}])
-
-
-
-
+    :serialization :json
+    :archive-name "gene-validity-jsonld"}])
 
 (def data-exchange
   {:type :kafka-cluster
@@ -250,6 +248,30 @@
 (defonce record-executor
   (ScheduledThreadPoolExecutor. 1))
 
+(def record-set->filename
+  {:curations "latest"
+   :versions "all"})
+
+(defn archive-file-name [topic record-set]
+  (str (:archive-name topic)
+       "-"
+       (record-set->filename record-set)
+       ".tar.gz"))
+
+(defn topic->record-defs [topic app storage-handle-base]
+  (let [base-def (assoc (select-keys topic
+                                     [:record-type
+                                      :serialization])
+                        :app app)]
+    (mapv (fn [record-set]
+            (assoc base-def
+                   :record-set record-set
+                   :storage-handle
+                   (assoc storage-handle-base
+                          :path (archive-file-name topic
+                                                   record-set))))
+          [:curations :versions])))
+
 (defn periodically-write-records
   [app record-def]
   (.scheduleAtFixedRate record-executor
@@ -257,7 +279,6 @@
                         0
                         6
                         TimeUnit/HOURS))
-
 
 (defn -main [& args]
   (log/info :msg "starting genegraph gene validity transform")
@@ -272,3 +293,7 @@
                                  (p/stop app))))
     (p/start app)
     (periodically-store-snapshots app 6 run-atom)))
+
+(comment
+  (-main)
+  )
