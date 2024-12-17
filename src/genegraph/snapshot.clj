@@ -24,7 +24,7 @@
 (def admin-env
   (if (or (System/getenv "DX_JAAS_CONFIG_DEV")
           (System/getenv "DX_JAAS_CONFIG")) ; prevent this in cloud deployments
-    {:platform "local"
+    {:platform "stage"
      :dataexchange-genegraph (System/getenv "DX_JAAS_CONFIG")
      :local-data-path "data/"}
     {}))
@@ -273,16 +273,25 @@
           [:curations :versions])))
 
 (defn periodically-write-records
-  [app record-def]
+  [record-def]
   (.scheduleAtFixedRate record-executor
                         #(writer/write-records record-def)
                         0
                         6
                         TimeUnit/HOURS))
 
+(defn periodically-write-record-snapshots-for-app [app]
+  (run! periodically-write-records
+        (mapcat
+         #(topic->record-defs %
+                              app
+                              (:public-fs-handle env))
+         topics-to-snapshot)))
+
+
 (defn -main [& args]
   (log/info :msg "starting genegraph gene validity transform")
-  (let [app (p/init snapshot-def)
+  (let [app (p/init snapshot-app-def)
         run-atom (atom true)]
     (.addShutdownHook (Runtime/getRuntime)
                       (Thread. (fn []
@@ -292,6 +301,7 @@
                                  (.shutdown record-executor)
                                  (p/stop app))))
     (p/start app)
+    (periodically-write-record-snapshots-for-app app)
     (periodically-store-snapshots app 6 run-atom)))
 
 (comment

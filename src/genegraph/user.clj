@@ -20,8 +20,9 @@
             ExecutorService ScheduledExecutorService TimeUnit]))
 
 (comment
-  (def portal-window (portal/open))
-  (add-tap #'portal/submit)
+  (do
+    (def portal-window (portal/open))
+    (add-tap #'portal/submit))
   (portal/close)
   (portal/clear))
 
@@ -220,15 +221,26 @@
                                    :base
                                    "/Users/tristan/data/snapshot-testing/"})
     snapshot/topics-to-snapshot))
+
+  (tap>
+   (mapcat
+    #(snapshot/topic->record-defs %
+                                  snapshot-app
+                                  {:type :file
+                                   :base
+                                   "/Users/tristan/data/snapshot-testing/"})
+    snapshot/topics-to-snapshot))
   (time
    (run! writer/write-records
          (mapcat
           #(snapshot/topic->record-defs %
-                                        snapshot-test
+                                        snapshot-app
                                         {:type :file
                                          :base
                                          "/Users/tristan/data/snapshot-testing/"})
           snapshot/topics-to-snapshot)))
+
+  (snapshot/periodically-write-record-snapshots-for-app snapshot-app)
   
 
   (def scheduled-executor
