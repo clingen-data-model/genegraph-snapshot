@@ -24,7 +24,7 @@
 (def admin-env
   (if (or (System/getenv "DX_JAAS_CONFIG_DEV")
           (System/getenv "DX_JAAS_CONFIG")) ; prevent this in cloud deployments
-    {:platform "stage"
+    {:platform "prod"
      :dataexchange-genegraph (System/getenv "DX_JAAS_CONFIG")
      :local-data-path "data/"}
     {}))
@@ -105,14 +105,14 @@
   {:name :gene-validity-sepio
    :kafka-cluster :data-exchange
    :serialization ::rdf/n-triples
-   :kafka-topic (qualified-kafka-name "gg-gvs2")
+   :kafka-topic "gene-validity-sepio"
    :kafka-topic-config {}})
 
 (def gene-validity-sepio-jsonld-topic 
   {:name :gene-validity-sepio
    :kafka-cluster :data-exchange
    :serialization :json
-   :kafka-topic (qualified-kafka-name "gg-gvs2-jsonld")
+   :kafka-topic "gene-validity-sepio-jsonld"
    :kafka-topic-config {}})
 
 (def ready-server
