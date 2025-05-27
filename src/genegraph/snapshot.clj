@@ -72,12 +72,12 @@
 
 (def topics-to-snapshot
   [{:name :gene-validity-nt
-    :kafka-topic "gg-gvs2-stage-1"
+    :kafka-topic "gene-validity-sepio"
     :record-type :gene-validity
     :serialization ::rdf/n-triples
     :archive-name "gene-validity-nt"}
    {:name :gene-validity-json
-    :kafka-topic "gg-gvs2-jsonld-stage-1"
+    :kafka-topic "gene-validity-sepio-jsonld"
     :record-type :gene-validity
     :serialization :json
     :archive-name "gene-validity-jsonld"}])
