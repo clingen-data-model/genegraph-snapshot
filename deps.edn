@@ -16,8 +16,9 @@
                                                 :git/sha "8e78bcc"}}
           :ns-default build}
   :dev {:extra-deps {djblue/portal {:mvn/version "0.56.0"}}
-        :jvm-opts ["-agentpath:/Applications/YourKit-Java-Profiler-2024.3.app/Contents/Resources/bin/mac/libyjpagent.dylib=disablestacktelemetry,exceptions=disable,delay=10000"
-                   "-XX:+UseZGC" "-XX:+ZGenerational" "-XX:MaxRAMPercentage=50"]}}
+        :jvm-opts ["-XX:+UseZGC"
+                   "-XX:+ZGenerational"
+                   "-XX:MaxRAMPercentage=50"]}}
 
  :jvm-opts ["-XX:+UseZGC" "-XX:+ZGenerational" "-XX:MaxRAMPercentage=75"]
  

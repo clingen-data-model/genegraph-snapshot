@@ -139,7 +139,8 @@
    :type :rocksdb
    :snapshot-handle (assoc (:fs-handle env)
                            :path "record-store.tar.lz4")
-   :path (str (:local-data-path env) "record-store")})
+   :path (str (:local-data-path env) "record-store")
+   :reset-opts {:destroy-snapshot true}})
 
 (def curation-key-interceptor
   (interceptor/interceptor
@@ -305,5 +306,5 @@
     (periodically-store-snapshots app 6 run-atom)))
 
 (comment
-  (-main)
+  
   )
