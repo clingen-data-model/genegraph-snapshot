@@ -306,5 +306,5 @@
     (periodically-store-snapshots app 6 run-atom)))
 
 (comment
-  
+  (p/reset (p/init snapshot-app-def))
   )
