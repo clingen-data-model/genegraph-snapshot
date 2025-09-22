@@ -41,7 +41,7 @@
                              :bucket "genegraph-framework-dev"}
                  :public-fs-handle {:type :gcs
                                     :bucket "genegraph-dev-public"}
-                 :local-data-path "/data")
+                 :local-data-path "/data/")
     "stage" (assoc (env/build-environment "583560269534" ["dataexchange-genegraph"])
                    :version 1
                    :name "stage"
@@ -51,7 +51,7 @@
                                :bucket "genegraph-snapshot-stage-1"}
                    :public-fs-handle {:type :gcs
                                       :bucket "genegraph-stage-public"}
-                   :local-data-path "/data")
+                   :local-data-path "/data/")
     "prod" (assoc (env/build-environment "974091131481" ["dataexchange-genegraph"])
                   :function (System/getenv "GENEGRAPH_FUNCTION")
                   :version 1
@@ -61,7 +61,7 @@
                                      :bucket "genegraph-public"}
                   :fs-handle {:type :gcs
                               :bucket "genegraph-snapshot-prod-1"}
-                  :local-data-path "/data")
+                  :local-data-path "/data/")
     {}))
 
 (def env
@@ -155,6 +155,9 @@
 (defn write-event [{::keys [version-key curation-key record-type]
                     ::event/keys [format]
                     :as event}]
+  (log/info :fn ::write-event
+            :curation-key curation-key
+            :version-key version-key)
   (let [data-to-store (select-keys event
                                    [::event/value
                                     ::event/format
@@ -291,7 +294,8 @@
 
 
 (defn -main [& args]
-  (log/info :msg "starting genegraph gene validity transform")
+  (log/info :msg "starting genegraph snapshot")
+  
   (let [app (p/init snapshot-app-def)
         run-atom (atom true)]
     (.addShutdownHook (Runtime/getRuntime)
@@ -306,5 +310,6 @@
     (periodically-store-snapshots app 6 run-atom)))
 
 (comment
+  (-main)
   (p/reset (p/init snapshot-app-def))
   )
