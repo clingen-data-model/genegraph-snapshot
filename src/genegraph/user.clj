@@ -48,21 +48,23 @@
 
 
 (comment
-  (get-events-from-topic snapshot/gene-validity-sepio-topic)
+  (time (get-events-from-topic snapshot/gene-validity-sepio-topic))
+  (time (get-events-from-topic snapshot/gene-validity-sepio-jsonld-topic))
+  
 
   (event-store/with-event-reader [r (str root-data-dir "gg-gvs2-dev-1-2024-07-24.edn.gz")]
     (->> (event-store/event-seq r)
          #_(take 100)
          (run! (fn [e]
-                   (p/publish (get-in test-app [:topics :gene-validity-sepio-rdf])
-                              e)))
+                 (p/publish (get-in test-app [:topics :gene-validity-sepio-rdf])
+                            e)))
          #_(map #(-> %
-                   event/deserialize
-                   (assoc ::snapshot/record-type :gene-validity)
-                   sp/curation-key
-                   sp/version-key
-                   (select-keys [::snapshot/version-key ::snapshot/curation-key])
-                   #_sp/event-type-and-format))
+                     event/deserialize
+                     (assoc ::snapshot/record-type :gene-validity)
+                     sp/curation-key
+                     sp/version-key
+                     (select-keys [::snapshot/version-key ::snapshot/curation-key])
+                     #_sp/event-type-and-format))
          #_tap>))
 
   (event-store/with-event-reader [r (str root-data-dir "gg-gvs2-jsonld-stage-1-2024-08-14.edn.gz")]
@@ -70,6 +72,23 @@
          (take 1)
          (map event/deserialize)
          tap>))
+
+  (event-store/with-event-reader [r (str root-data-dir "gene-validity-sepio-jsonld-2025-09-22.edn.gz")]
+    (->> (event-store/event-seq r)
+         (take 1)
+         (map event/deserialize)
+         tap>))
+
+  (event-store/with-event-reader [r (str root-data-dir "gene-validity-sepio-2025-09-22.edn.gz")]
+    (->> (event-store/event-seq r)
+         (take 1)
+         (map event/deserialize)
+         tap>))
+
+  (event-store/with-event-reader [r (str root-data-dir
+                                         "gene-validity-sepio-2025-09-22.edn.gz")]
+    (->> (event-store/event-seq r)
+         count))
 
   (storage/read @(get-in test-app [:storage :record-store :instance])
                 [:gene-validity
