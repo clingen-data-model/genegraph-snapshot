@@ -8,6 +8,7 @@
  "geno" "http://purl.obolibrary.org/obo/GENO_"
  "mondo" "http://purl.obolibrary.org/obo/MONDO_"
  "cg" "https://genegraph.clinicalgenome.org/terms/"
+ "gg" "https://genegraph.clinicalgenome.org/r/"
  "cgdosage" "http://dx.clinicalgenome.org/entities/"
  "cggv" "https://genegraph.clinicalgenome.org/gci/"
  "cggciex" "https://genegraph.clinicalgenome.org/gci-express/"
