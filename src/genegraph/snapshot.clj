@@ -281,8 +281,8 @@
   (.scheduleAtFixedRate record-executor
                         #(writer/write-records record-def)
                         0
-                        6
-                        TimeUnit/HOURS))
+                        10
+                        TimeUnit/MINUTES))
 
 (defn periodically-write-record-snapshots-for-app [app]
   (run! periodically-write-records
