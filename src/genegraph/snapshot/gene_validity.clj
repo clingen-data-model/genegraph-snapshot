@@ -27,9 +27,14 @@ select ?c where {
   [event]
   (-> event ::event/data version-key-query first str))
 
+(defn file-base-str [e]
+  (let [kw (names/iri->kw (:genegraph.snapshot/version-key e))]
+    (str (namespace kw) "_" (name kw))))
+
 (defmethod sp/event-filename [:gene-validity ::rdf/rdf-serialization]
   [event]
-  (let [kw (names/iri->kw (:genegraph.snapshot/version-key event))]
+  (str (file-base-str event)".nt")
+  #_(let [kw (names/iri->kw (:genegraph.snapshot/version-key event))]
     (str (namespace kw) "_" (name kw) ".nt")))
 
 ;; TODO, change this once we correct the frame for isVersionOf
@@ -43,7 +48,8 @@ select ?c where {
 
 (defmethod sp/event-filename [:gene-validity :json]
   [event]
-  (str (str/replace (:genegraph.snapshot/version-key event)
+  (str (file-base-str event) ".json")
+  #_(str (str/replace (:genegraph.snapshot/version-key event)
                     #":"
                     "_")
        ".json"))

@@ -73,6 +73,37 @@
          (map event/deserialize)
          tap>))
 
+  (tap> snapshot-test)
+  (defn process-json [event]
+    (p/process (get-in snapshot-test [:processors :gene-validity-json-processor])
+               event))
+
+  (defn process-rdf [event]
+    (p/process (get-in snapshot-test [:processors :gene-validity-nt-processor])
+               event))
+
+  (event-store/with-event-reader [r (str root-data-dir "gene-validity-sepio-jsonld-2025-09-25.edn.gz")]
+    (->> (event-store/event-seq r)
+         (take 1)
+         (map process-json)
+         (mapv sp/event-filename)
+         #_frequencies
+         #_tap>))
+
+  (event-store/with-event-reader [r (str root-data-dir "gene-validity-sepio-2025-09-25.edn.gz")]
+    (->> (event-store/event-seq r)
+         (take 1)
+         (map process-rdf)
+         (mapv sp/event-filename)))
+
+  (event-store/with-event-reader [r (str root-data-dir "gene-validity-sepio-jsonld-2025-09-22.edn.gz")]
+    (->> (event-store/event-seq r)
+         #_(take 10)
+         (map process-json)
+         (map :genegraph.snapshot/version-key)
+         frequencies
+         tap>))
+
   (event-store/with-event-reader [r (str root-data-dir "gene-validity-sepio-jsonld-2025-09-22.edn.gz")]
     (->> (event-store/event-seq r)
          (take 1)
