@@ -40,7 +40,7 @@ select ?c where {
 ;; TODO, change this once we correct the frame for isVersionOf
 (defmethod sp/curation-key [:gene-validity :json]
   [event]
-  (-> event ::event/data :dc:isVersionOf :id))
+  (-> event ::event/data :dc:isVersionOf))
 
 (defmethod sp/version-key [:gene-validity :json]
   [event]
